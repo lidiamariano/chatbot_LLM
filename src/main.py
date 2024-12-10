@@ -1,16 +1,11 @@
 from chatbot import ChatbotSeguranca
 from interface import criar_interface
 
-# Documento de contexto
-documento_contexto = """
-Regras e Considerações de Segurança:
-- Apenas pessoal treinado e autorizado pode operar máquinas pesadas, como tornos.
-- Equipamentos de proteção individual (EPIs) obrigatórios incluem óculos de segurança, protetores auriculares e luvas.
-- Sempre inspecione os equipamentos antes do uso e siga os procedimentos de segurança.
-"""
+# Caminho para o PDF
+caminho_pdf = "./data/document.pdf"
 
 # Instância do chatbot
-chatbot = ChatbotSeguranca(documento_contexto)
+chatbot = ChatbotSeguranca(caminho_pdf)
 
 # Cria a interface e inicia o programa
 if __name__ == "__main__":

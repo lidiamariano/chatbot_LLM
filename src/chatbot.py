@@ -1,20 +1,26 @@
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
+from PyPDF2 import PdfReader
+from sentence_transformers import SentenceTransformer, util
 
 
 class ChatbotSeguranca:
-    def __init__(self, documento_contexto):
+    def __init__(self, pdf_path):
         """
-        Inicializa o chatbot com o contexto fornecido e configura a API do Gemini.
+        Inicializa o chatbot e configura a API do Gemini com base no PDF.
 
         Args:
-            documento_contexto (str): Texto do documento de normas de segurança.
+            pdf_path (str): Caminho para o PDF a ser utilizado como fonte de conhecimento.
         """
         self._carregar_ambiente()
         self._configurar_gemini()
-        self.contexto = documento_contexto
         self.historico_chat = []  # Memória do chat
+        self.embeddings = None
+        self.textos_pdf = []
+
+        # Carrega e processa o PDF
+        self._carregar_pdf(pdf_path)
 
     def _carregar_ambiente(self):
         """Carrega as variáveis de ambiente do arquivo .env."""
@@ -30,10 +36,39 @@ class ChatbotSeguranca:
             "models/gemini-1.5-flash",
             system_instruction=(
                 "Você é um assistente especializado em normas de segurança industrial. "
-                "Seu papel é fornecer respostas precisas e concisas às perguntas dos usuários. "
-                "Sempre baseie suas respostas no documento de segurança fornecido."
+                "Baseie suas respostas no conteúdo do documento fornecido."
             ),
         )
+
+    def _carregar_pdf(self, pdf_path):
+        """Carrega e processa o PDF para gerar embeddings."""
+        reader = PdfReader(pdf_path)
+        self.textos_pdf = [page.extract_text() for page in reader.pages]
+
+        if len(self.textos_pdf) == 0:
+            raise ValueError("O PDF está vazio ou não contém texto legível.")
+
+        # Divide o texto em frases e cria embeddings
+        self.modelo_embeddings = SentenceTransformer('all-MiniLM-L6-v2')
+        self.embeddings = self.modelo_embeddings.encode(self.textos_pdf, convert_to_tensor=True)
+
+    def buscar_no_pdf(self, pergunta):
+        """
+        Busca os trechos mais relevantes do PDF com base na pergunta.
+
+        Args:
+            pergunta (str): Pergunta do usuário.
+
+        Returns:
+            str: Trecho mais relevante do PDF.
+        """
+        if self.embeddings is None or len(self.embeddings) == 0:
+            return "Não foi possível encontrar informações relevantes no PDF."
+
+        pergunta_embedding = self.modelo_embeddings.encode(pergunta, convert_to_tensor=True)
+        resultados = util.cos_sim(pergunta_embedding, self.embeddings)
+        indice_mais_relevante = resultados.argmax().item()
+        return self.textos_pdf[indice_mais_relevante]
 
     def adicionar_ao_historico(self, mensagem_usuario, resposta_bot):
         """Adiciona a interação ao histórico do chat."""
@@ -49,12 +84,13 @@ class ChatbotSeguranca:
         Returns:
             str: Resposta gerada pelo modelo.
         """
+        trecho_pdf = self.buscar_no_pdf(entrada_usuario)
         historico_prompt = "\n".join(
             [f"Usuário: {entrada['usuario']}\nAssistente: {entrada['bot']}" for entrada in self.historico_chat]
         )
 
         prompt = (
-            f"Contexto:\n{self.contexto}\n\n"
+            f"Trecho do PDF:\n{trecho_pdf}\n\n"
             f"Histórico do chat:\n{historico_prompt}\n\n"
             f"Pergunta do usuário: {entrada_usuario}\n"
             f"Resposta:"

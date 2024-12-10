@@ -30,9 +30,9 @@ def criar_interface(chatbot):
         with gr.Column():
             chat_historico = gr.Chatbot(
                 label="Conversa com o Assistente",
-                type="messages",  # Corrige o aviso sobre o tipo
+                type="messages",
                 elem_id="chatbox",
-                height=500  # Define a altura diretamente
+                height=500
             )
             entrada_usuario = gr.Textbox(
                 label="Digite sua pergunta",
